@@ -45,7 +45,7 @@ class MainActivity : Activity() {
 
     private val loader by lazy {
         WebViewAssetLoader.Builder()
-            .addPathHandler("/web/", WebViewAssetLoader.AssetsPathHandler(this))
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
     }
 
@@ -102,7 +102,7 @@ class MainActivity : Activity() {
             }
         }
         if (savedInstanceState != null) web.restoreState(savedInstanceState)
-        else web.loadUrl("https://appassets.androidplatform.net/web/index.html")
+        else web.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
         handleShare(intent)
     }
 
