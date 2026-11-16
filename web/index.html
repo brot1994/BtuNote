@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>BtuNote</title>
+<meta name="theme-color" content="#ffffff" id="themeColor">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar" id="topbar">
+    <button class="ib" id="btnMenu" title="Menu"></button>
+    <div class="brand" id="brand"><img src="icons/icon-192.png" alt=""><span id="brandText">BtuNote</span></div>
+    <label class="search" id="searchBox">
+      <span class="search-ic"></span>
+      <input id="search" type="search" placeholder="Cari catatan" autocomplete="off">
+      <button class="ib sm" id="btnClearSearch" title="Hapus pencarian" hidden></button>
+    </label>
+    <div class="top-actions">
+      <button class="ib mobile-only" id="btnSearchMobile" title="Cari"></button>
+      <button class="ib" id="btnSync" title="Sinkron"></button>
+      <button class="ib" id="btnLayout" title="Tampilan"></button>
+      <button class="ib" id="btnAccount" title="Akun OneDrive"></button>
+    </div>
+  </header>
+
+  <header class="selbar" id="selbar" hidden>
+    <button class="ib" id="selClose" title="Batal pilih"></button>
+    <span id="selCount">0 dipilih</span>
+    <div class="top-actions" id="selActions"></div>
+  </header>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <nav class="drawer" id="drawer"></nav>
+
+  <main id="main">
+    <div class="composer desktop-only" id="composer">
+      <span>Buat catatan…</span>
+      <button class="ib" data-new="list" title="Daftar centang baru"></button>
+      <button class="ib" data-new="image" title="Catatan dengan gambar"></button>
+    </div>
+    <div class="banner" id="banner" hidden></div>
+    <div id="sections"></div>
+  </main>
+
+  <div class="bottombar mobile-only" id="bottombar">
+    <button class="ib" data-new="list" title="Daftar centang"></button>
+    <button class="ib" data-new="image" title="Gambar"></button>
+    <span class="flex"></span>
+    <button class="fab" id="fab" title="Catatan baru"></button>
+  </div>
+</div>
+
+<div class="editor-wrap" id="editorWrap" hidden>
+  <div class="editor" id="editor"></div>
+</div>
+
+<div class="viewer" id="viewer" hidden></div>
+<div class="popover" id="popover" hidden></div>
+<div class="dialog-wrap" id="dialogWrap" hidden><div class="dialog" id="dialog"></div></div>
+<div class="snackbar" id="snackbar" hidden></div>
+
+<input type="file" id="fileImage" accept="image/*" multiple hidden>
+<input type="file" id="fileAttach" multiple hidden>
+<input type="file" id="fileEnex" accept=".enex,application/enex+xml,text/xml" multiple hidden>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
