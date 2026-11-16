@@ -4,7 +4,7 @@ const CACHE = 'btunote-__BUILD__';
 const FILES = [
   './', 'index.html', 'css/app.css', 'manifest.webmanifest',
   'js/app.js', 'js/auth.js', 'js/config.js', 'js/db.js', 'js/enex.js', 'js/graph.js',
-  'js/icons.js', 'js/md5.js', 'js/model.js', 'js/sync.js',
+  'js/icons.js', 'js/keepimport.js', 'js/zip.js', 'js/md5.js', 'js/model.js', 'js/sync.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png',
 ];
 

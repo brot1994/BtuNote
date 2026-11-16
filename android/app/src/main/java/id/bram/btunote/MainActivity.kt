@@ -86,10 +86,10 @@ class MainActivity : Activity() {
             ): Boolean {
                 fileCallback?.onReceiveValue(null)
                 fileCallback = callback
-                val accept = params.acceptTypes.joinToString(",")
+                val types = params.acceptTypes.map { it.trim() }.filter { it.isNotEmpty() }
                 val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
                     addCategory(Intent.CATEGORY_OPENABLE)
-                    type = if (accept.contains("image/") && !accept.contains(".enex")) "image/*" else "*/*"
+                    type = if (types.isNotEmpty() && types.all { it.startsWith("image/") }) "image/*" else "*/*"
                     if (params.mode == FileChooserParams.MODE_OPEN_MULTIPLE) putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
                 }
                 return try {

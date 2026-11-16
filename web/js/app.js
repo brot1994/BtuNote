@@ -3,6 +3,7 @@ import { auth } from './auth.js';
 import { graph } from './graph.js';
 import { sync, tombstone, fetchBlob } from './sync.js';
 import { importEnex, exportEnex } from './enex.js';
+import { importKeep } from './keepimport.js';
 import { icon } from './icons.js';
 import { COLORS, newNote, uid, isEmpty, storeImageFile, storeBytes } from './model.js';
 import { VERSION, TRASH_DAYS } from './config.js';
@@ -244,6 +245,7 @@ function renderDrawer() {
     ${item('trash', 'delete', 'Sampah')}
     <div class="sep"></div>
     <button class="item" data-act="import" title="Impor dari Evernote">${icon('upload')}<span>Impor dari Evernote (.enex)</span></button>
+    <button class="item" data-act="keep" title="Impor dari Google Keep">${icon('lightbulb')}<span>Impor dari Google Keep</span></button>
     <button class="item" data-act="export" title="Ekspor ke .enex">${icon('download')}<span>Ekspor ke .enex</span></button>
     <button class="item" data-act="account" title="OneDrive">${icon('cloud_done')}<span>OneDrive & sinkron</span></button>
     <button class="item" data-act="theme" title="${themeName}">${icon(document.documentElement.classList.contains('dark') ? 'dark' : 'light')}<span>${themeName}</span></button>
@@ -275,6 +277,7 @@ $('#drawer').addEventListener('click', async (e) => {
   const act = b.dataset.act;
   if (act === 'labels') editLabelsDialog();
   else if (act === 'import') $('#fileEnex').click();
+  else if (act === 'keep') $('#fileKeep').click();
   else if (act === 'export') exportDialog();
   else if (act === 'account') accountDialog();
   else if (act === 'theme') {
@@ -1032,6 +1035,47 @@ $('#fileEnex').addEventListener('change', async (e) => {
     state.sec = 'notes'; state.label = null;
     render();
     snack(`${total} catatan berhasil diimpor`);
+    sync.soon();
+  } catch (err) {
+    if (dlgClose) dlgClose(null);
+    await prog;
+    await loadNotes(); render();
+    dialog(`<h3>Impor gagal</h3><p>${esc(err.message || err)}</p><div class="acts"><button class="btn primary" data-ok>OK</button></div>`,
+      (d, close) => { $('[data-ok]', d).onclick = () => close(); });
+  }
+});
+
+$('#fileKeep').addEventListener('change', async (e) => {
+  const files = [...e.target.files];
+  e.target.value = '';
+  if (!files.length) return;
+  const ok = await dialog(`<h3>Impor dari Google Keep</h3>
+    <p>${files.length > 1 ? `${files.length} file` : esc(files[0].name)} akan diimpor ke BtuNote.</p>
+    <p class="muted">Judul, isi, checklist, warna, pin, arsip, label, gambar dan rekaman suara ikut dipindah. Note di Sampah Keep dilewati, dan note yang sudah pernah diimpor tidak digandakan.</p>
+    <label class="opt"><input type="checkbox" id="kLabelOn">Tambahkan label</label>
+    <input type="text" id="kLabel" value="Google Keep" maxlength="50">
+    <div class="acts"><button class="btn" data-x>Batal</button><button class="btn primary" data-ok>Impor</button></div>`,
+  (d, close) => {
+    $('[data-x]', d).onclick = () => close(null);
+    $('[data-ok]', d).onclick = () => close({ label: $('#kLabelOn', d).checked ? $('#kLabel', d).value.trim() : '' });
+  });
+  if (!ok) return;
+  const prog = dialog(`<h3>Mengimpor…</h3><p id="impMsg">Membaca file…</p><div class="progress"><div id="impBar"></div></div>`);
+  try {
+    const r = await importKeep(files, {
+      label: ok.label,
+      onProgress: (i, n) => {
+        const m = $('#impMsg'); const b = $('#impBar');
+        if (m) m.textContent = `${i} / ${n} catatan`;
+        if (b) b.style.width = `${Math.round((i / n) * 100)}%`;
+      },
+    });
+    if (dlgClose) dlgClose(null);
+    await prog;
+    await loadNotes();
+    state.sec = 'notes'; state.label = null;
+    render();
+    snack(`${r.count} catatan dari Google Keep diimpor${r.skipped ? ` (${r.skipped} dilewati)` : ''}`);
     sync.soon();
   } catch (err) {
     if (dlgClose) dlgClose(null);
