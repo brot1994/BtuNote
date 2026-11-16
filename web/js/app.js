@@ -1,7 +1,7 @@
 import { db } from './db.js';
 import { auth } from './auth.js';
 import { graph } from './graph.js';
-import { sync, tombstone } from './sync.js';
+import { sync, tombstone, fetchBlob } from './sync.js';
 import { importEnex, exportEnex } from './enex.js';
 import { icon } from './icons.js';
 import { COLORS, newNote, uid, isEmpty, storeImageFile, storeBytes } from './model.js';
@@ -85,7 +85,12 @@ async function blobUrl(name) {
 }
 function hydrate(root) {
   for (const img of $$('img[data-blob]', root)) {
-    blobUrl(img.dataset.blob).then((u) => { if (u) { img.src = u; img.removeAttribute('data-blob'); } });
+    const name = img.dataset.blob;
+    blobUrl(name).then((u) => {
+      if (u) { img.src = u; img.removeAttribute('data-blob'); img.classList.remove('wait'); return; }
+      img.classList.add('wait'); // belum ada di HP ini: unduh dari OneDrive sekarang
+      fetchBlob(name);
+    });
   }
 }
 
@@ -942,8 +947,14 @@ $('#fileAttach').addEventListener('change', async (e) => {
 });
 
 async function openFile(f) {
-  const b = await db.getBlob(f.name);
-  if (!b) { snack('File belum terunduh dari OneDrive, coba sebentar lagi'); sync.run(); return; }
+  let b = await db.getBlob(f.name);
+  if (!b) {
+    snack(`Mengunduh ${f.title}…`, null, null, 30000);
+    await fetchBlob(f.name);
+    b = await db.getBlob(f.name);
+    $('#snackbar').hidden = true;
+    if (!b) { snack('Gagal mengunduh file dari OneDrive. Cek koneksi lalu coba lagi.'); return; }
+  }
   if (native) { await saveFile(b.blob, f.title, f.mime, true); return; }
   const u = URL.createObjectURL(new Blob([b.blob], { type: f.mime }));
   const a = document.createElement('a');
@@ -1206,7 +1217,7 @@ sync.on(async (ev) => {
     }
     render();
   }
-  if (ev.type === 'blobs') { render(); if (ed) hydrate($('#editor')); }
+  if (ev.type === 'blobs') { hydrate($('#sections')); if (ed) hydrate($('#editor')); hydrate($('#viewer')); }
 });
 
 // Dipanggil oleh APK setelah login native selesai.

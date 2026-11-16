@@ -128,26 +128,51 @@ async function pull() {
   if (changed.length) emitChanged(changed);
 }
 
-async function pullBlobs() {
-  const have = new Set(await db.allBlobKeys());
-  const need = new Set();
-  for (const n of await db.allNotes()) {
-    if (n.deleted) continue;
-    (n.images || []).forEach((x) => { if (!have.has(x)) need.add(x); });
-    (n.files || []).forEach((f) => { if (!have.has(f.name)) need.add(f.name); });
-  }
-  if (!need.size) return;
-  let got = 0;
-  await pool([...need], 3, async (name) => {
+// ---- unduh gambar/lampiran dari OneDrive ----
+const blobWait = new Map();   // name -> Promise
+const blobFailed = new Map(); // name -> waktu gagal terakhir
+let blobT = null;
+function blobsArrived() {
+  clearTimeout(blobT);
+  blobT = setTimeout(() => { for (const f of listeners) f({ type: 'blobs' }); }, 150);
+}
+
+// Unduh satu file sekarang juga (dipakai saat note dibuka / gambar tampil di layar).
+export function fetchBlob(name) {
+  if (blobWait.has(name)) return blobWait.get(name);
+  const p = (async () => {
+    if (await db.getBlob(name)) return true;
+    if (!auth.isLoggedIn() || !navigator.onLine) return false;
     try {
       const blob = await graph.downloadFile(name);
       await db.putBlob({ name, blob, uploaded: true });
-      got++;
+      blobFailed.delete(name);
+      blobsArrived();
+      return true;
     } catch (e) {
-      if (e.status !== 404) throw e;
+      console.warn('unduh', name, e);
+      blobFailed.set(name, Date.now());
+      return false;
+    } finally {
+      blobWait.delete(name);
     }
-  });
-  if (got) for (const f of listeners) f({ type: 'blobs' });
+  })();
+  blobWait.set(name, p);
+  return p;
+}
+
+async function pullBlobs() {
+  const have = new Set(await db.allBlobKeys());
+  const imgs = new Set();
+  const files = new Set();
+  for (const n of await db.allNotes()) {
+    if (n.deleted) continue;
+    (n.images || []).forEach((x) => { if (!have.has(x)) imgs.add(x); });
+    (n.files || []).forEach((f) => { if (!have.has(f.name)) files.add(f.name); });
+  }
+  // gambar dulu, baru lampiran; yang baru gagal dicoba lagi setelah 2 menit
+  const todo = [...imgs, ...files].filter((x) => Date.now() - (blobFailed.get(x) || 0) > 120000);
+  await pool(todo, 4, (name) => fetchBlob(name));
 }
 
 async function runOnce() {

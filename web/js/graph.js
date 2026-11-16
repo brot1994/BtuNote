@@ -89,14 +89,17 @@ export const graph = {
   },
 
   async downloadFile(name) {
-    const j = await (await call(`${itemPath(`files/${name}`)}?$select=id,@microsoft.graph.downloadUrl`)).json();
-    const r = await graph.download(j['@microsoft.graph.downloadUrl']);
-    return r.blob();
+    // Ambil info file lengkap (tanpa $select) supaya link unduhan pasti ikut
+    const j = await (await call(itemPath(`files/${name}`))).json();
+    const url = j['@microsoft.graph.downloadUrl'];
+    if (url) return (await graph.download(url)).blob();
+    return (await call(`${itemPath(`files/${name}`)}:/content`)).blob();
   },
 
   async getNote(id) {
-    const j = await (await call(`${itemPath(`notes/${id}.json`)}?$select=eTag,@microsoft.graph.downloadUrl`)).json();
-    const obj = await (await graph.download(j['@microsoft.graph.downloadUrl'])).json();
+    const j = await (await call(itemPath(`notes/${id}.json`))).json();
+    const url = j['@microsoft.graph.downloadUrl'];
+    const obj = await (url ? await graph.download(url) : await call(`${itemPath(`notes/${id}.json`)}:/content`)).json();
     return { obj, eTag: j.eTag };
   },
 

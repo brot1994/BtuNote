@@ -364,3 +364,7 @@ body.mini main { padding-left: 88px; }
   .snackbar { left: 16px; right: 16px; bottom: calc(72px + env(safe-area-inset-bottom)); min-width: 0; }
   body.selecting .bottombar { display: none !important; }
 }
+
+/* gambar yang masih diunduh dari OneDrive */
+img.wait { min-height: 140px; background: var(--input) center / 40px no-repeat; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .55; } }
