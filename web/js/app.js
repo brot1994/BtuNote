@@ -4,6 +4,7 @@ import { graph } from './graph.js';
 import { sync, tombstone, fetchBlob } from './sync.js';
 import { importEnex, exportEnex } from './enex.js';
 import { importKeep } from './keepimport.js';
+import { showImage, showPdf } from './viewer.js';
 import { icon } from './icons.js';
 import { COLORS, newNote, uid, isEmpty, storeImageFile, storeBytes } from './model.js';
 import { VERSION, TRASH_DAYS } from './config.js';
@@ -958,6 +959,8 @@ async function openFile(f) {
     $('#snackbar').hidden = true;
     if (!b) { snack('Gagal mengunduh file dari OneDrive. Cek koneksi lalu coba lagi.'); return; }
   }
+  if (f.mime === 'application/pdf' || /\.pdf$/i.test(f.title)) { openPdf(b.blob, f); return; }
+  if (f.mime.startsWith('image/')) { openViewer(f.name); return; }
   if (native) { await saveFile(b.blob, f.title, f.mime, true); return; }
   const u = URL.createObjectURL(new Blob([b.blob], { type: f.mime }));
   const a = document.createElement('a');
@@ -968,17 +971,68 @@ async function openFile(f) {
   setTimeout(() => URL.revokeObjectURL(u), 60000);
 }
 
-function openViewer(name) {
+// Penampil layar penuh (gambar / PDF) dengan pinch-zoom.
+function viewerShell(title, onSave) {
   const v = $('#viewer');
-  v.innerHTML = `<img data-blob="${esc(name)}" alt=""><button class="ib vclose" title="Tutup">${icon('back')}</button><button class="ib vdl" title="Simpan">${icon('download')}</button>`;
   v.hidden = false;
-  hydrate(v);
-  const close = (fromPop) => { v.hidden = true; v.innerHTML = ''; if (!fromPop) popOverlay(onPop); };
+  let inst = null;
+  const close = (fromPop) => {
+    if (inst && inst.destroy) inst.destroy();
+    v.hidden = true; v.innerHTML = '';
+    if (!fromPop) popOverlay(onPop);
+  };
   const onPop = () => close(true);
   pushOverlay(onPop);
-  $('.vclose', v).onclick = () => close();
-  v.onclick = (e) => { if (e.target === v) close(); };
-  $('.vdl', v).onclick = async () => { const b = await db.getBlob(name); if (b) saveFile(b.blob, name, b.blob.type); };
+  const bar = () => {
+    const t = document.createElement('div');
+    t.className = 'vbar';
+    t.innerHTML = `<button class="ib" data-v="close" title="Tutup">${icon('back')}</button>
+      <span class="vtitle">${esc(title)}</span><span class="vinfo"></span>
+      <button class="ib desktop-only" data-v="out" title="Perkecil"><b>−</b></button>
+      <button class="ib desktop-only" data-v="in" title="Perbesar"><b>+</b></button>
+      <button class="ib" data-v="save" title="${native ? 'Simpan / buka di aplikasi lain' : 'Unduh'}">${icon('download')}</button>`;
+    v.appendChild(t);
+    t.onclick = (e) => {
+      const b = e.target.closest('[data-v]');
+      if (!b) return;
+      const a = b.dataset.v;
+      if (a === 'close') close();
+      if (a === 'save') onSave();
+      const zp = inst && (inst.zp || inst);
+      if (a === 'in' && zp) zp.zoomBy(1.5);
+      if (a === 'out' && zp) zp.zoomBy(1 / 1.5);
+    };
+  };
+  return { v, bar, set(i) { inst = i; }, info(txt) { const el = $('.vinfo', v); if (el) el.textContent = txt; } };
+}
+
+async function openViewer(name) {
+  const b = await db.getBlob(name);
+  const sh = viewerShell('', () => { if (b) saveFile(b.blob, name, b.blob.type, true); });
+  if (!b) {
+    sh.v.innerHTML = '<div class="vmsg">Gambar belum terunduh dari OneDrive…</div>';
+    sh.bar();
+    const ok = await fetchBlob(name);
+    if (sh.v.hidden) return;
+    if (!ok) { $('.vmsg', sh.v).textContent = 'Gagal mengunduh gambar.'; return; }
+    sh.v.innerHTML = '';
+    return openViewerReplace(sh, name);
+  }
+  sh.set(showImage(sh.v, await blobUrl(name)));
+  sh.bar();
+}
+async function openViewerReplace(sh, name) {
+  sh.set(showImage(sh.v, await blobUrl(name)));
+  sh.bar();
+}
+
+async function openPdf(blob, f) {
+  const sh = viewerShell(f.title, () => saveFile(blob, f.title, f.mime, true));
+  const p = showPdf(sh.v, blob, (t) => sh.info(t)); // langsung mengisi isi viewer
+  sh.bar();
+  const inst = await p;
+  if (sh.v.hidden) { if (inst) inst.destroy(); return; }
+  sh.set(inst);
 }
 
 // ======================= simpan file (ekspor) =======================
