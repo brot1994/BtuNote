@@ -140,7 +140,11 @@ class MainActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (web.canGoBack()) web.goBack() else super.onBackPressed()
+        if (!pageReady) { finish(); return }
+        // Biarkan aplikasi web menutup lapisan paling atas (gambar/PDF → catatan → daftar), baru keluar.
+        web.evaluateJavascript("(window.BtuApp && BtuApp.onBack()) ? '1' : '0'") { r ->
+            if (r != "\"1\"") finish()
+        }
     }
 
     @Deprecated("Deprecated in Java")

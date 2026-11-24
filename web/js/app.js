@@ -135,27 +135,46 @@ function applyTheme() {
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 
 // ======================= overlay & tombol back =======================
+// Tumpukan "lapisan" yang bisa ditutup dengan tombol Back (editor, gambar/PDF, dialog, menu, seleksi…).
+// - Di APK: tombol Back Android memanggil BtuApp.onBack() → tutup lapisan paling atas satu per satu.
+// - Di browser: 1 entri history per lapisan, jadi Back browser juga menutup satu lapisan.
 const overlays = [];
-let armed = false;       // ada 1 entri history "overlay terbuka"
-let backPending = false; // history.back() sedang berjalan
-function arm() {
-  if (armed || backPending || !overlays.length) return;
-  history.pushState({ o: 1 }, '');
-  armed = true;
+let histDepth = 0;      // jumlah entri history milik lapisan
+let histBusy = false;   // sedang menunggu history.go()
+function syncHistory() {
+  if (native || histBusy) return;
+  if (histDepth < overlays.length) {
+    while (histDepth < overlays.length) { history.pushState({ o: histDepth + 1 }, ''); histDepth++; }
+  } else if (histDepth > overlays.length) {
+    histBusy = true;
+    const n = histDepth - overlays.length;
+    histDepth = overlays.length;
+    history.go(-n);
+  }
 }
-function pushOverlay(close) { overlays.push(close); arm(); }
+function pushOverlay(close) { overlays.push(close); syncHistory(); }
 function popOverlay(close) {
   const i = overlays.lastIndexOf(close);
   if (i < 0) return;
   overlays.splice(i, 1);
-  if (!overlays.length && armed) { armed = false; backPending = true; history.back(); }
+  syncHistory();
+}
+// Tutup lapisan paling atas. Mengembalikan true kalau ada yang ditutup.
+function backOne() {
+  if (popClose) { closePopover(); return true; }
+  const close = overlays.pop();
+  if (close) { close(true); return true; }
+  if (state.sec !== 'notes') { state.sec = 'notes'; state.label = null; render(); scrollTo(0, 0); return true; }
+  return false;
 }
 window.addEventListener('popstate', () => {
-  if (backPending) { backPending = false; arm(); return; }
-  armed = false;
+  if (native) return;
+  if (histBusy) { histBusy = false; syncHistory(); return; }
+  histDepth = Math.max(0, histDepth - 1);
+  if (popClose) closePopover();
   const close = overlays.pop();
   if (close) close(true);
-  arm();
+  syncHistory();
 });
 
 // ======================= snackbar / popover / dialog =======================
@@ -1329,6 +1348,8 @@ window.BtuApp = {
     snack('Tersambung ke OneDrive');
   },
   onResume() { sync.run(); },
+  // Tombol Back Android: true = sudah ditangani di aplikasi, false = keluar aplikasi
+  onBack() { return backOne(); },
   // Teks yang dibagikan dari aplikasi lain (menu Share → BtuNote)
   onShare(title, text) {
     if (ed) closeEditor();
